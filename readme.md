@@ -139,7 +139,3 @@ SQL AI AGENT/
 ├── documentation.pdf           # Project documentation
 └── requirements.txt            # Python dependencies required for the project
 ```
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
