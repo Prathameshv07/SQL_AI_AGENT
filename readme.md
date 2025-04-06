@@ -20,7 +20,7 @@ This application converts natural language queries into SQL statements, executes
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/SQL_AI_AGENT.git
+git clone https://github.com/Prathameshv07/SQL_AI_AGENT.git
 cd SQL_AI_AGENT
 ```
 
