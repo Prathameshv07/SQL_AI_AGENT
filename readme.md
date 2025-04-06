@@ -108,11 +108,13 @@ http://localhost:8000
 
 ## Example Queries
 
-- "Show me all customers from New York"
-- "List products with price greater than $50"
-- "What are the total sales for each product?"
-- "Find customers who bought products in the Electronics category"
-- "What was the total revenue last month?"
+- List total sales per product.
+- Find customers who purchased in more than one category.
+- Show all sales recorded in January 2023.
+- Retrieve names of customers who bought Electronics.
+- What are the top 3 cities by number of customers?
+- Identify products never sold.
+- List customers who joined in 2022 and made at least one purchase.
 
 ## Project Structure
 
