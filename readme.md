@@ -138,14 +138,6 @@ SQL AI AGENT/
 └── requirements.txt            # Python dependencies required for the project
 ```
 
-## Future Improvements
-
-- User authentication
-- Query history
-- Export results to CSV/Excel
-- Data visualizations
-- Query suggestions
-
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
