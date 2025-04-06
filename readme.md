@@ -117,19 +117,25 @@ http://localhost:8000
 ## Project Structure
 
 ```
-SQL_AI_AGENT/
-├── .env                    # Environment variables
-├── README.md               # Project documentation
-├── requirements.txt        # Python dependencies
-├── app/                    # Main application code
-│   ├── main.py             # FastAPI application
-│   ├── database.py         # Database utilities
-│   ├── models.py           # Pydantic models
-│   └── services/           # Application services
-│       └── ai_service.py   # Gemini service commmunication
-│       └── sql_service.py  # SQL cursor services
-├── static/                 # Static files (CSS, JS)
-└── templates/              # HTML templates
+SQL AI AGENT/
+├── app/
+│   ├── services/
+│   │   ├── ai_service.py       # Handles communication with the AI (Gemini) API
+│   │   └── sql_service.py      # Manages SQL cursor operations and query execution
+│   ├── database.py             # Establishes and manages database connections
+│   ├── main.py                 # Entry point for running the FastAPI application
+│   └── models.py               # Contains data models (Pydantic or ORM models)
+├── static/
+│   ├── css/
+│   │   └── styles.css          # Styles for the frontend
+│   └── js/
+│       └── script.js           # Client-side JavaScript for dynamic behavior
+├── templates/
+│   └── index.html              # Main HTML template for rendering the UI
+├── .env                        # Environment variables (e.g., DB credentials, API keys)
+├── readme.md                   # Project instruction
+├── documentation.pdf           # Project documentation
+└── requirements.txt            # Python dependencies required for the project
 ```
 
 ## Future Improvements
