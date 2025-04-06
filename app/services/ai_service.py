@@ -78,7 +78,37 @@ def _create_prompt(query, error_msg=None):
         Please ensure your response addresses this specific issue.
         """
     
-    # Add rules and guidelines
+    # Add thinking steps to encourage careful analysis
+    prompt += """
+    ## **Step-by-Step Analysis Process**
+    Before generating the final SQL query, follow these thinking steps:
+    
+    1. **Analyze the request carefully**:
+       - What tables are needed?
+       - What columns need to be selected?
+       - Are there any filters or conditions?
+       - Is aggregation or grouping needed?
+       
+    2. **Check for specific requirements**:
+       - Is the user requesting NOT to use LIMIT or GROUP BY?
+       - Are there any performance considerations?
+       - Are there specific sorting requirements?
+       
+    3. **Match requirements to schema**:
+       - Verify all tables and columns referenced exist in the schema
+       - Ensure proper joins between tables
+       
+    4. **Consider query efficiency**:
+       - Are there simpler ways to write this query?
+       - Will the query be performant on large datasets?
+       
+    5. **Final verification**:
+       - Does the query exactly match what was requested?
+       - Does it follow all MySQL syntax rules?
+       - Does it avoid using LIMIT/GROUP BY when specifically requested not to?
+    """
+    
+    # Add rules and guidelines with stronger emphasis on LIMIT and GROUP BY
     prompt += """
 
     ---
@@ -122,7 +152,27 @@ def _create_prompt(query, error_msg=None):
 
     ---
 
-    ### **5. If the query is unrealted to schema then simply response as `ERROR: Query is not relevant with schema provided.`**
+    ### **5. CRITICAL RESTRICTIONS - READ CAREFULLY:**
+    - **DO NOT use `LIMIT` unless explicitly requested** in the user query. Many queries don't need it.
+    - **DO NOT use `GROUP BY` if the user specifically requests not to use it.**
+    - **DO NOT return redundant columns** that aren't needed to satisfy the query.
+    - **NEVER assume default values** like limits or sorting that weren't specifically requested.
+    - **BE CAREFUL with dates** - use proper MySQL date functions, not string operations.
+    - **VERIFY column types in the schema** before using them in functions.
+    - **CHECK for NULL value handling** where appropriate.
+    - **ENSURE joins won't create unexpected data duplication**.
+    - **USE appropriate predicates** that match the indexing strategy.
+    - **DO NOT use database-specific extensions** that might not be supported.
+
+    ---
+
+    ### **6. Things to keep in mind before generating SQL query:**
+    - Take time to analyze what the query is asking for. Speed is not important - accuracy is.
+    - Verify each column and table used exists in the schema.
+    - Follow exactly what the user asks for - do not add extra filters or limits unless specified.
+    - Consider data volume and performance implications of your query design.
+    - When multiple approaches are possible, use the one that's most efficient and standard.
+    - If the user mentions not to use a specific SQL feature (like LIMIT or GROUP BY), that's a strict requirement.
     """
     
     # Add test cases if there's no error feedback
@@ -134,12 +184,12 @@ def _create_prompt(query, error_msg=None):
 
         ## ** Test Cases for Different Query Types**
         ### **1️. Simple Selection**
-        **Input:** "List unique product categories, limit to 5."  
-        **Output:** `SELECT DISTINCT category FROM products LIMIT 5;`  
+        **Input:** "List unique product categories."  
+        **Output:** `SELECT DISTINCT category FROM products;`  
 
         ### **2️. Aggregation with GROUP BY**
         **Input:** "What is the total sales by year?"  
-        .**Output:** `SELECT YEAR(s.sale_date) AS sale_year, SUM(s.total_amount) AS total_sales FROM sales s GROUP BY YEAR(s.sale_date) ORDER BY sale_year;`  
+        **Output:** `SELECT YEAR(s.sale_date) AS sale_year, SUM(s.sale_amount) AS total_sales FROM sales s GROUP BY YEAR(s.sale_date) ORDER BY sale_year;`  
 
         ### **3️. Aggregation without GROUP BY (Using Window Functions)**
         **Input:** "What is the sale amount by sale year with respect to category, gender, age, sorted by ascending product_id without using GROUP BY?"  
@@ -149,11 +199,20 @@ def _create_prompt(query, error_msg=None):
             p.category, 
             c.gender, 
             c.age, 
-            SUM(s.total_amount) OVER (PARTITION BY YEAR(s.sale_date), p.category, c.gender, c.age) AS total_sales 
+            SUM(s.sale_amount) OVER (PARTITION BY YEAR(s.sale_date), p.category, c.gender, c.age) AS total_sales 
         FROM sales s 
         JOIN products p ON s.product_id = p.product_id 
         JOIN customers c ON s.customer_id = c.customer_id 
         ORDER BY p.product_id ASC;
+
+        ### **4. Query without LIMIT example**
+        **Input:** "Show all sales in January 2023 sorted by amount"
+        **Output:** `SELECT * FROM sales WHERE MONTH(sale_date) = 1 AND YEAR(sale_date) = 2023 ORDER BY sale_amount DESC;`
+
+        ### **5. Common mistake example - using LIMIT when not requested**
+        **Input:** "Show me sales from the East region"
+        **INCORRECT Output:** `SELECT * FROM sales WHERE region = 'East' LIMIT 10;`
+        **CORRECT Output:** `SELECT * FROM sales WHERE region = 'East';`
         """
     
     return prompt
@@ -165,7 +224,7 @@ def clean_sql_response(text):
     
     # Remove common prefixes
     prefixes = ["SQLQuery:", "SQL Query:", "Here's the SQL query:", "Here is your query:", 
-                "Query:", "SELECT statement:", "SQL:", "MySQL Query:"]
+                "Query:", "SELECT statement:", "SQL:", "MySQL Query:", "Final SQL Query:"]
     for prefix in prefixes:
         if text.startswith(prefix):
             text = text.replace(prefix, "", 1).strip()
@@ -187,11 +246,26 @@ def clean_sql_response(text):
     # Remove any HTML-like tags that might appear
     text = re.sub(r'<[^>]+>', '', text)
     
+    # Remove any leading numbers that might be used for step numbering
+    text = re.sub(r'^[\d\.]+\s+', '', text)
+    
     return text.strip()
 
+def analyze_query_intent(query_text):
+    """Analyze user query for specific restrictions or requirements"""
+    query_lower = query_text.lower()
+    restrictions = {
+        "no_limit": any(term in query_lower for term in ["without limit", "no limit", "don't use limit", "do not use limit"]),
+        "no_group_by": any(term in query_lower for term in ["without group by", "no group by", "don't use group by", "do not use group by"]),
+        "needs_sorting": any(term in query_lower for term in ["sort", "order", "rank", "highest", "lowest", "top", "bottom", "ascending", "descending"]),
+        "needs_joining": len(re.findall(r'(customers?|products?|sales?)', query_lower)) > 1,
+    }
+    return restrictions
+
 def validate_sql_query(sql_query, original_query):
-    """Validate the generated SQL query"""
+    """Validate the generated SQL query with enhanced checks"""
     sql_lower = sql_query.lower()
+    query_intent = analyze_query_intent(original_query)
     
     # Check if it's empty
     if not sql_query:
@@ -201,24 +275,79 @@ def validate_sql_query(sql_query, original_query):
     if not any(keyword in sql_lower for keyword in ['select', 'insert', 'update', 'delete']):
         raise Exception("Failed to generate valid SQL query - missing SQL keywords")
     
-    # For the specific case mentioned in the original query
-    if "without using limit" in original_query.lower() and "limit" in sql_lower:
+    # Enhanced validation based on query intent
+    if query_intent["no_limit"] and "limit" in sql_lower:
         raise Exception("Query was generated with LIMIT despite instructions not to use it")
     
-    if "without using group by" in original_query.lower() and "group by" in sql_lower:
+    if query_intent["no_group_by"] and "group by" in sql_lower:
         raise Exception("Query was generated with GROUP BY despite instructions not to use it")
+    
+    # Check if the query unnecessarily uses LIMIT when not requested
+    if "limit" in sql_lower and not any(term in original_query.lower() for term in ["limit", "top", "first", "last", "recent", "newest", "latest", "few"]):
+        raise Exception("Query unnecessarily uses LIMIT when not requested in the original query")
     
     # Check for balance of parentheses
     if sql_query.count('(') != sql_query.count(')'):
         raise Exception("Unbalanced parentheses in generated SQL")
     
+    # Check for common syntax issues
+    if "where like" in sql_lower:
+        raise Exception("Invalid syntax: 'WHERE LIKE' without column name")
+        
+    # Check for obvious column errors based on schema
+    schema_columns = {
+        "customers": ["customer_id", "customer_name", "gender", "age", "city", "join_date"],
+        "products": ["product_id", "product_name", "category", "price"],
+        "sales": ["sale_id", "customer_id", "product_id", "sale_date", "sale_amount", "quantity_sold", "region"]
+    }
+    
+    # Look for columns that look similar but might be typos
+    for table, columns in schema_columns.items():
+        table_pattern = fr'\b{table}\b|\b{table[:-1]}\b'  # Match plural or singular
+        if re.search(table_pattern, sql_lower):
+            # Look for potential column typos
+            potential_columns = re.findall(r'[a-z_]+_(?:id|name|date|amount)', sql_lower)
+            for col in potential_columns:
+                # Check if similar but not exact match to any schema column
+                if col not in [c for cols in schema_columns.values() for c in cols] and any(lev_dist(col, c) <= 2 for c in [c for cols in schema_columns.values() for c in cols]):
+                    raise Exception(f"Potential column typo: '{col}' not found in schema")
+    
     return True
 
-async def _generate_sql_with_gemini(prompt):
-    """Generate SQL using Gemini model - internal helper function"""
+def lev_dist(a, b):
+    """Calculate Levenshtein distance between strings"""
+    # Simple implementation for detecting similar but not identical column names
+    if len(a) < len(b):
+        return lev_dist(b, a)
+    if not b:
+        return len(a)
+    
+    previous_row = range(len(b) + 1)
+    for i, c1 in enumerate(a):
+        current_row = [i + 1]
+        for j, c2 in enumerate(b):
+            insertions = previous_row[j + 1] + 1
+            deletions = current_row[j] + 1
+            substitutions = previous_row[j] + (c1 != c2)
+            current_row.append(min(insertions, deletions, substitutions))
+        previous_row = current_row
+    
+    return previous_row[-1]
+
+async def _generate_sql_with_gemini(prompt, temperature=0.0):
+    """Generate SQL using Gemini model with specified temperature"""
     try:
         model = genai.GenerativeModel('gemini-2.0-flash')
-        response = model.generate_content(prompt)
+        generation_config = {
+            "temperature": temperature,
+            "top_p": 0.95,  # More deterministic output
+            "top_k": 40,    # More deterministic output
+            "max_output_tokens": 1024,
+        }
+        response = model.generate_content(
+            prompt,
+            generation_config=generation_config
+        )
         
         # Extract SQL query from response and clean thoroughly
         sql_query = clean_sql_response(response.text)
@@ -263,6 +392,12 @@ async def convert_nl_to_sql(query: str) -> str:
         if simple_result.startswith("error:"):
             return simple_result
         
+        # Validate the fallback result
+        try:
+            validate_sql_query(simple_result, query)
+        except Exception as validation_error:
+            return f"error: {str(validation_error)}"
+        
         return simple_result
 
 async def convert_nl_to_sql_with_feedback(query: str, error_msg=None, max_retries=3) -> dict:
@@ -274,6 +409,7 @@ async def convert_nl_to_sql_with_feedback(query: str, error_msg=None, max_retrie
     status = "processing"
     current_error = error_msg
     sql_result = None
+    temperature_schedule = [0.0, 0.1, 0.2]  # Gradually increase temperature on retries
     
     while retry_count < max_retries and status != "success":
         try:
@@ -281,7 +417,9 @@ async def convert_nl_to_sql_with_feedback(query: str, error_msg=None, max_retrie
             if retry_count > 0 or current_error:
                 # Create prompt with error feedback
                 prompt = _create_prompt(query, current_error)
-                sql_result = await _generate_sql_with_gemini(prompt)
+                # Use temperature schedule based on retry count
+                temp = temperature_schedule[min(retry_count, len(temperature_schedule)-1)]
+                sql_result = await _generate_sql_with_gemini(prompt, temperature=temp)
             else:
                 # First try with standard method
                 sql_result = await convert_nl_to_sql(query)
@@ -299,6 +437,12 @@ async def convert_nl_to_sql_with_feedback(query: str, error_msg=None, max_retrie
         except Exception as e:
             retry_count += 1
             current_error = str(e)
+            
+            # Make error message more specific for better feedback
+            if "LIMIT" in current_error:
+                current_error = f"Error: You are using LIMIT unnecessarily. The query does not need a LIMIT clause. Please remove it and try again. Original error: {current_error}"
+            elif "GROUP BY" in current_error:
+                current_error = f"Error: You are using GROUP BY when specifically asked not to. Please use window functions (OVER PARTITION BY) instead. Original error: {current_error}"
             
             if retry_count >= max_retries:
                 status = "failed"
