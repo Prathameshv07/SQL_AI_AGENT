@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQL AI Agent</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center mb-4">SQL AI Agent</h1>
+        
+        <div class="query-form">
+            <form id="queryForm">
+                <div class="mb-3">
+                    <label for="nlQuery" class="form-label">Enter your question about the sales database:</label>
+                    <input type="text" class="form-control" id="nlQuery" placeholder="E.g., Show me all customers from Mumbai" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Execute Query</button>
+            </form>
+        </div>        
+
+        <!-- HTML template for your loading states -->
+        <div class="loading" id="loading-container">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p id="loading-message">Converting your question to SQL and fetching results...</p>
+        </div>
+        
+        <div class="error-message" id="errorMessage"></div>
+        
+        <div class="result-container" id="resultContainer" style="display: none;">
+            <h3>Results</h3>
+            
+            <div class="sql-display" id="sqlQuery"></div>
+            
+            <div class="table-responsive">
+                <table class="table table-striped table-hover" id="resultTable">
+                    <thead id="tableHead"></thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/script.js"></script>
+
+    <!-- JavaScript to update the loading message -->
+    <script>
+
+        // Function to update loading message
+        function updateLoadingMessage(message) {
+            document.getElementById('loading-message').textContent = message;
+        }
+
+        // Enhanced processing function with better error handling
+        async function processQuery(query) {
+            // Show loading
+            const loadingContainer = document.getElementById('loading-container');
+            loadingContainer.style.display = 'block';
+            updateLoadingMessage('Converting your question to SQL and fetching results...');
+            
+            try {
+                // Send the request to your backend
+                const response = await fetch('/api/convert-query', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ query: query })
+                });
+                
+                // Check for HTTP errors
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                
+                // Get the data as it streams in
+                const reader = response.body.getReader();
+                let processingComplete = false;
+                
+                while (!processingComplete) {
+                    const { value, done } = await reader.read();
+                    if (done) {
+                        processingComplete = true;
+                        break;
+                    }
+                    
+                    // Convert the chunk to text
+                    const chunk = new TextDecoder().decode(value);
+                    let data;
+                    
+                    try {
+                        data = JSON.parse(chunk);
+                    } catch (e) {
+                        console.error("Failed to parse JSON chunk:", chunk);
+                        continue;
+                    }
+                    
+                    // Update UI based on status
+                    switch (data.status) {
+                        case 'retrying':
+                            updateLoadingMessage(`Found an issue with the SQL - retrying (attempt ${data.retry_count})...`);
+                            console.log("Retry attempt details:", {
+                                error: data.error,
+                                query: data.query,
+                                retry_count: data.retry_count
+                            });
+                            break;
+                            
+                        case 'success':
+                            updateLoadingMessage('Successfully generated SQL! Fetching results...');
+                            // Process the successful result
+                            await processSuccessfulResult(data.sql);
+                            processingComplete = true;
+                            break;
+                            
+                        case 'failed':
+                            updateLoadingMessage('Could not generate valid SQL. Please try rephrasing your question.');
+                            // Enhanced error display with all context
+                            showError({
+                                message: data.error,
+                                query: data.query,
+                                retry_count: data.retry_count
+                            });
+                            // Send error to your Gemini feedback mechanism
+                            await sendErrorToGemini(data);
+                            processingComplete = true;
+                            break;
+                            
+                        default:
+                            console.log("Unknown status:", data.status);
+                    }
+                }
+            } catch (error) {
+                // Handle errors
+                updateLoadingMessage('An error occurred. Please try again.');
+                console.error('Error:', error);
+                showError({ message: error.toString() });
+            } finally {
+                // Hide loading when complete with a slight delay for better UX
+                setTimeout(() => {
+                    loadingContainer.style.display = 'none';
+                }, 1000);
+            }
+        }
+
+        // Function to send error data back to your Gemini service
+        async function sendErrorToGemini(errorData) {
+            try {
+                const response = await fetch('/api/feedback', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(errorData)
+                });
+                
+                if (!response.ok) {
+                    console.warn("Feedback API returned non-OK status:", response.status);
+                }
+            } catch (e) {
+                console.error("Failed to send error data to Gemini:", e);
+            }
+        }
+
+        function showError(errorData) {
+            // Clear any previous errors
+            const errorMessageElement = document.getElementById('errorMessage');
+            errorMessageElement.innerHTML = '';
+            
+            // Create a more comprehensive error display
+            console.error("SQL Generation Error:", errorData);
+            
+            // Create UI element to show error details
+            const errorContainer = document.createElement('div');
+            errorContainer.className = 'error-container alert alert-danger mt-3';
+            errorContainer.innerHTML = `
+                <h5>Error Details</h5>
+                <p><strong>Message:</strong> ${errorData.message || 'Unknown error'}</p>
+                ${errorData.query ? `<p><strong>Query:</strong> ${errorData.query}</p>` : ''}
+                ${errorData.retry_count ? `<p><strong>Attempts:</strong> ${errorData.retry_count}</p>` : ''}
+                <p class="mt-2">Please try rephrasing your question or providing more details.</p>
+            `;
+            
+            // Add to your UI
+            errorMessageElement.appendChild(errorContainer);
+        }
+
+        // Process successful SQL result - this is a placeholder for your implementation
+        async function processSuccessfulResult(sql) {
+            try {
+                // Here you'd typically send the SQL to be executed and display results
+                const response = await fetch('/api/query', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ query: sql })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Error executing SQL: ${response.status}`);
+                }
+                
+                const results = await response.json();
+                
+                // Display results in your UI
+                displayResults(results);
+            } catch (error) {
+                console.error("Error processing SQL results:", error);
+                showError({ message: `Error executing SQL: ${error.message}` });
+            }
+        }
+
+        // Function to display results - implement according to your UI
+        function displayResults(results) {
+            // Implementation depends on your UI structure
+            console.log("Results to display:", results);
+            
+            // Example implementation:
+            const resultsContainer = document.getElementById('results-container');
+            if (resultsContainer) {
+                resultsContainer.innerHTML = '';
+                
+                // Display the SQL query
+                const sqlElement = document.createElement('div');
+                sqlElement.className = 'sql-query mb-3';
+                sqlElement.innerHTML = `
+                    <h5>Generated SQL</h5>
+                    <pre class="bg-light p-3 rounded"><code>${results.sql_query}</code></pre>
+                `;
+                resultsContainer.appendChild(sqlElement);
+                
+                // Display the results
+                const resultsElement = document.createElement('div');
+                resultsElement.className = 'query-results';
+                resultsElement.innerHTML = `<h5>Results</h5>`;
+                
+                // Add results table or other visualization based on your data structure
+                // ...
+                
+                resultsContainer.appendChild(resultsElement);
+            }
+        }
+
+    </script>
+
+</body>
+</html>

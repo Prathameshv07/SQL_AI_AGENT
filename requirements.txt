@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+mysql-connector-python
+python-dotenv
+google-generativeai
+langchain
+langchain-google-genai
+sqlalchemy
+jinja2
+langchain-community
