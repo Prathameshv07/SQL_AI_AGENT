@@ -197,3 +197,14 @@ SQL AI AGENT/
 - **Data Layer:** Responsible for database connectivity, this layer uses a dedicated connector to manage query execution and ensure data integrity.
 - **External Integration:** The system integrates with external services (like the AI Model API) to enhance its natural language processing capabilities, making it a powerful tool for converting natural language to SQL.
 - **Feedback Loop:** The diagram also indicates a feedback mechanism between the AI and SQL services, which helps refine query generation and execution, ensuring accuracy and reliability in results.
+
+---
+
+**11. License**
+
+[![License: CC BY-NC 4.0](https://licensebuttons.net/l/by-nc/4.0/88x31.png)](http://creativecommons.org/licenses/by-nc/4.0/)
+
+This project is licensed under the **Creative Commons Attribution-NonCommercial 4.0 International License**.  
+You are free to **use, share, and adapt** the material for **non-commercial and educational purposes**, as long as proper **credit is given** and any changes are noted.
+
+Learn more: [http://creativecommons.org/licenses/by-nc/4.0/](http://creativecommons.org/licenses/by-nc/4.0/)
