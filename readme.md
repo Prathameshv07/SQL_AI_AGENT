@@ -1,4 +1,4 @@
-# Natural Language to SQL AI Agent
+# SQL AI Agent
 
 This application converts natural language queries into SQL statements, executes them against a MySQL database, and returns the results in a structured format.
 
@@ -9,6 +9,11 @@ This application converts natural language queries into SQL statements, executes
 - Display results in a user-friendly tabular format
 - Error handling and query validation
 - Example queries for easy testing
+
+## Demo & Documentation
+
+- 🎥 [Video Preview](https://drive.google.com/file/d/1x8-_YekQqEjl30rIAgeDmb2fF0PX14nr/view)
+- 📄 [Project Documentation](https://drive.google.com/file/d/1GalI8UisA_3kZiSZfOA_S0GkIvQ0pE5-/view)
 
 ## Prerequisites
 
