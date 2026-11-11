@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+message: "If you use this work, please cite it using the metadata below."
+type: software
+title: "SQL AI Agent: Natural-Language to SQL Querying with Gemini"
+authors:
+  - given-names: "Prathamesh Sarjerao"
+    family-names: "Vaidya"
+repository-code: "https://github.com/Prathameshv07/SQL_AI_AGENT"
+license: CC-BY-NC-4.0
+date-released: "2025-05-12"
+abstract: "A FastAPI web application that translates natural-language questions into SQL using Google Gemini and LangChain, executes them against a MySQL database, and returns tabular results with automatic error-feedback retries."
+keywords:
+  - "text-to-SQL"
+  - "large language models"
+  - "Gemini"
+  - "LangChain"
+  - "FastAPI"
+  - "MySQL"

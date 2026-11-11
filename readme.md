@@ -40,63 +40,15 @@ source venv/bin/activate  # On Windows, use: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-4. Create a `.env` file in the project root and add your Gemini API key:
+4. Create your `.env` file from the template and fill in your Gemini API key and MySQL credentials:
+```bash
+cp .env.example .env
 ```
-GEMINI_API_KEY=your_gemini_api_key_here
-```
 
-5. Set up the database:
-```sql
-CREATE DATABASE sales;
-USE sales;
-
-CREATE TABLE customers (
-    customer_id INT PRIMARY KEY NOT NULL,
-    customer_name VARCHAR(100),
-    gender CHAR(1),
-    age INT,
-    city VARCHAR(100),
-    join_date DATE
-);
-
-CREATE TABLE products (
-    product_id INT PRIMARY KEY NOT NULL,
-    product_name VARCHAR(100),
-    category VARCHAR(50),
-    price DECIMAL(10, 2)
-);
-
-CREATE TABLE sales (
-    sale_id INT PRIMARY KEY NOT NULL,
-    customer_id INT,
-    product_id INT,
-    sale_date DATE,
-    sale_amount DECIMAL(10, 2),
-    quantity_sold INT,
-    region VARCHAR(50),
-    FOREIGN KEY (customer_id) REFERENCES customers(customer_id),
-    FOREIGN KEY (product_id) REFERENCES products(product_id)
-);
-
--- Insert sample data
-INSERT INTO customers VALUES 
-(1, 'John Doe', 'M', 30, 'New York', '2022-01-01'),
-(2, 'Jane Smith', 'F', 28, 'Mumbai', '2022-02-15'),
-(3, 'Bob Johnson', 'M', 35, 'London', '2022-03-20');
-
-INSERT INTO products VALUES
-(1, 'Laptop', 'Electronics', 999.99),
-(2, 'Smartphone', 'Electronics', 699.99),
-(3, 'Headphones', 'Electronics', 129.99),
-(4, 'Coffee Maker', 'Appliances', 59.99),
-(5, 'Running Shoes', 'Clothing', 89.99);
-
-INSERT INTO sales VALUES
-(1, 1, 1, '2023-01-15', 999.99, 1, 'North America'),
-(2, 2, 3, '2023-01-20', 259.98, 2, 'Asia'),
-(3, 3, 2, '2023-02-05', 699.99, 1, 'Europe'),
-(4, 1, 4, '2023-02-10', 59.99, 1, 'North America'),
-(5, 2, 5, '2023-03-01', 89.99, 1, 'Asia');
+5. Create the database and load the sample data (products, customers and sales tables):
+```bash
+mysql -u root -p -e "CREATE DATABASE sales;"
+mysql -u root -p sales < sample_data_all_quoted.sql
 ```
 
 ## Running the Application
@@ -124,32 +76,38 @@ http://localhost:8000
 ## Project Structure
 
 ```
-SQL AI AGENT/
+SQL_AI_AGENT/
 ├── app/
 │   ├── services/
-│   │   ├── ai_service.py       # Handles communication with the AI (Gemini) API
-│   │   └── sql_service.py      # Manages SQL cursor operations and query execution
-│   ├── database.py             # Establishes and manages database connections
-│   ├── main.py                 # Entry point for running the FastAPI application
-│   └── models.py               # Contains data models (Pydantic or ORM models)
-├── static/
-│   ├── css/
-│   │   └── styles.css          # Styles for the frontend
-│   └── js/
-│       └── script.js           # Client-side JavaScript for dynamic behavior
-├── templates/
-│   └── index.html              # Main HTML template for rendering the UI
-├── .env                        # Environment variables (e.g., DB credentials, API keys)
-├── readme.md                   # Project instruction
-├── documentation.pdf           # Project documentation
-└── requirements.txt            # Python dependencies required for the project
+│   │   ├── ai_service.py        # Gemini / LangChain natural-language → SQL with error-feedback retries
+│   │   └── sql_service.py       # Executes SQL and formats results
+│   ├── database.py              # MySQL + LangChain SQLDatabase connections
+│   ├── main.py                  # FastAPI entry point
+│   └── models.py                # Pydantic request/response models
+├── static/                      # CSS and client-side JavaScript
+├── templates/index.html         # Web UI
+├── sample_data_all_quoted.sql   # Schema + sample data
+├── .env.example                 # Environment variable template
+├── requirements.txt
+├── CITATION.cff
+└── LICENSE
+```
+
+## Citation
+
+If you use or build on this project, please cite it. GitHub's **"Cite this repository"** button (generated from [`CITATION.cff`](CITATION.cff)) provides APA and BibTeX formats.
+
+```bibtex
+@software{vaidya_sqlaiagent_2025,
+  author = {Vaidya, Prathamesh Sarjerao},
+  title  = {SQL AI Agent: Natural-Language to SQL Querying with Gemini},
+  year   = {2025},
+  url    = {https://github.com/Prathameshv07/SQL_AI_AGENT}
+}
 ```
 
 ## License
 
-[![License: CC BY-NC 4.0](https://licensebuttons.net/l/by-nc/4.0/88x31.png)](http://creativecommons.org/licenses/by-nc/4.0/)
+[![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
 
-This project is licensed under the **Creative Commons Attribution-NonCommercial 4.0 International License**.  
-You are free to **use, share, and adapt** the material for **non-commercial and educational purposes**, as long as proper **credit is given** and any changes are noted.
-
-Learn more: [http://creativecommons.org/licenses/by-nc/4.0/](http://creativecommons.org/licenses/by-nc/4.0/)
+© 2025 Prathamesh Sarjerao Vaidya. This work is licensed under the [Creative Commons Attribution-NonCommercial 4.0 International License](https://creativecommons.org/licenses/by-nc/4.0/). You may share and adapt it for **non-commercial** purposes, provided you **give appropriate credit** and indicate any changes. See [LICENSE](LICENSE) for details.

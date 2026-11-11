@@ -1,20 +1,20 @@
+from dotenv import load_dotenv
+
+# Load environment variables BEFORE importing app modules, which read them at import time
+load_dotenv()
+
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 import os
 import uvicorn
-from dotenv import load_dotenv
-from pydantic import BaseModel
 import json
 import asyncio
 from app.services.ai_service import convert_nl_to_sql_with_feedback
 from app.services.sql_service import execute_sql_query
-from fastapi.responses import StreamingResponse
-
-
-# Load environment variables
-load_dotenv()
 
 
 class QueryRequest(BaseModel):

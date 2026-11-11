@@ -1,26 +1,18 @@
 import mysql.connector
 from sqlalchemy import create_engine
-# from langchain.sql_database import SQLDatabase
 from langchain_community.utilities import SQLDatabase
-from urllib.parse import quote
 import os
+from urllib.parse import quote_plus
 
-# Database connection parameters
-"""
-DB_HOST = os.getenv("DB_HOST", "localhost")
-DB_USER = os.getenv("DB_USER", "root")
-DB_PASSWORD = os.getenv("DB_PASSWORD", "root@123")
-DB_NAME = os.getenv("DB_NAME", "sales_schema")
-"""
-
+# Database connection parameters (read from .env)
 DB_HOST = os.getenv("DB_HOST")
 DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
-# DB_PASSWORD_ENCODED = quote(DB_PASSWORD)
 DB_NAME = os.getenv("DB_NAME")
 
 # SQLAlchemy URI
-DB_URI = f"mysql+mysqlconnector://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}"
+# Password is URL-encoded so characters like "@" or ":" do not break the URI
+DB_URI = f"mysql+mysqlconnector://{DB_USER}:{quote_plus(DB_PASSWORD or '')}@{DB_HOST}/{DB_NAME}"
 
 def get_db_connection():
     """Create and return a MySQL connection"""
